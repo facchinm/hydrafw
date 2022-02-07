@@ -32,9 +32,6 @@
 
 #include "script.h"
 
-static uint8_t outbuf[IN_OUT_BUF_SIZE+8];
-static uint8_t inbuf[IN_OUT_BUF_SIZE+8];
-
 /* FS object.*/
 FATFS SDC_FS;
 /* FS Root */
@@ -269,6 +266,17 @@ bool badblocks(uint32_t start, uint32_t end, uint32_t blockatonce, uint8_t patte
 {
 	uint32_t position = 0;
 	uint32_t i = 0;
+	uint8_t *outbuf, *inbuf;
+
+	outbuf = pool_alloc_bytes(IN_OUT_BUF_SIZE+8);
+	inbuf = pool_alloc_bytes(IN_OUT_BUF_SIZE+8);
+
+	if(inbuf == 0 || outbuf == 0) {
+		pool_free(inbuf);
+		pool_free(outbuf);
+		return FALSE;
+	}
+
 
 	chDbgCheck(blockatonce <= SDC_BURST_SIZE);
 
@@ -293,9 +301,13 @@ bool badblocks(uint32_t start, uint32_t end, uint32_t blockatonce, uint8_t patte
 			goto ERROR;
 		position += blockatonce;
 	}
+	pool_free(inbuf);
+	pool_free(outbuf);
 	return FALSE;
 
 ERROR:
+	pool_free(inbuf);
+	pool_free(outbuf);
 	return TRUE;
 }
 
@@ -307,15 +319,6 @@ void fillbuffer(uint8_t pattern, uint8_t *b)
 	uint32_t i = 0;
 	for (i=0; i < MMCSD_BLOCK_SIZE * SDC_BURST_SIZE; i++)
 		b[i] = pattern;
-}
-
-/**
- *
- */
-void fillbuffers(uint8_t pattern)
-{
-	fillbuffer(pattern, inbuf);
-	fillbuffer(pattern, outbuf);
 }
 
 #define PRINT_PERF_VAL_DIGITS	(100)
@@ -335,6 +338,12 @@ static int sd_perf_run(t_hydra_console *con, int seconds, int sectors, int offse
 {
 	uint32_t n, startblk;
 	systime_t start, end;
+	uint8_t * inbuf = pool_alloc_bytes(IN_OUT_BUF_SIZE+8);
+
+	if(inbuf == 0) {
+		pool_free(inbuf);
+		return FALSE;
+	}
 
 	/* The test is performed in the middle of the flash area. */
 	startblk = (SDCD1.capacity / MMCSD_BLOCK_SIZE) / 2;
@@ -343,8 +352,9 @@ static int sd_perf_run(t_hydra_console *con, int seconds, int sectors, int offse
 	end = start + TIME_MS2I(seconds * 1000);
 	n = 0;
 	do {
-		if (blkRead(&SDCD1, startblk, g_sbuf + offset, sectors)) {
+		if (blkRead(&SDCD1, startblk, inbuf + offset, sectors)) {
 			cprintf(con, "SD read failed.\r\n");
+			pool_free(inbuf);
 			return FALSE;
 		}
 		n += sectors;
@@ -354,6 +364,7 @@ static int sd_perf_run(t_hydra_console *con, int seconds, int sectors, int offse
 	print_mbs(con, (n * MMCSD_BLOCK_SIZE) / seconds);
 	cprintf(con, " MB/s\r\n");
 
+	pool_free(inbuf);
 	return TRUE;
 }
 
@@ -370,7 +381,7 @@ int sd_perf(t_hydra_console *con, int offset)
 	if (!(ret = sd_perf_run(con, PERFRUN_SECONDS, 1, offset)))
 		return ret;
 
-	for(nb_sectors = 2; nb_sectors <= G_SBUF_SDC_BURST_SIZE; nb_sectors=nb_sectors*2) {
+	for(nb_sectors = 2; nb_sectors <= SDC_BURST_SIZE*2; nb_sectors=nb_sectors*2) {
 		/* Multiple sequential blocks read performance, aligned.*/
 		cprintf(con, "%3dKiB blocks: ", nb_sectors/2 );
 		ret = sd_perf_run(con, PERFRUN_SECONDS, nb_sectors, offset);

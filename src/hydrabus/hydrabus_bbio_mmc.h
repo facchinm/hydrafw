@@ -1,7 +1,7 @@
 /*
  * HydraBus/HydraNFC
  *
- * Copyright (C) 2014-2015 Benjamin VERNOUX
+ * Copyright (C) 2015 Nicolas OBERLI
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,8 @@
  * limitations under the License.
  */
 
-#ifndef _HYDRABUS_MODE_SPI_H_
-#define _HYDRABUS_MODE_SPI_H_
 
-#include "hydrabus_mode.h"
+#define BBIO_MMC_HEADER		"MMC1"
 
-enum {
-	SPI_MSB_FIRST,
-	SPI_LSB_FIRST,
-};
-
-#define SPI_SPEED_NB (8)
-extern const uint32_t spi_speeds[2][SPI_SPEED_NB];
-
-#endif /* _HYDRABUS_MODE_SPI_H_ */
+void bbio_mmc_init_proto_default(t_hydra_console *con);
+void bbio_mode_mmc(t_hydra_console *con);

@@ -33,13 +33,8 @@
 #define HYDRAFW_VERSION "HydraFW (HydraBus) " HYDRAFW_GIT_TAG " " HYDRAFW_CHECKIN_DATE
 #define TEST_WA_SIZE    THD_WORKING_AREA_SIZE(256)
 
-/* CCM = .ram4 */
-uint8_t buf[512] __attribute__ ((section(".ram4")));
 /* Generic large buffer.*/
 uint8_t fbuff[2048] __attribute__ ((section(".ram4")));
-
-uint32_t g_sbuf_idx;
-uint8_t g_sbuf[NB_SBUFFER+128] __attribute__ ((aligned (4)));
 
 extern uint32_t debug_flags;
 extern char log_dest[];
@@ -144,13 +139,28 @@ void DelayMs(uint32_t delay_ms)
 
 void cmd_show_memory(t_hydra_console *con)
 {
-  size_t n, total, largest;
+	uint32_t used, free;
+	size_t n, total, largest;
 
-  n = chHeapStatus(NULL, &total, &largest);
+	n = chHeapStatus(NULL, &total, &largest);
 	cprintf(con, "core free memory : %u bytes\r\n", chCoreGetStatusX());
 	cprintf(con, "heap fragments   : %u\r\n", n);
-  cprintf(con, "heap free total  : %u bytes\r\n", total);
+	cprintf(con, "heap free total  : %u bytes\r\n", total);
 	cprintf(con, "heap free largest: %u bytes\r\n", largest);
+	free = pool_stats_free();
+	used = pool_stats_used();
+	cprintf(con, "pool free : %u blocks\r\n", free);
+	cprintf(con, "pool used : %u blocks\r\n", used);
+#ifdef MAKE_DEBUG
+	uint8_t * blocks;
+	blocks = pool_stats_blocks();
+	cprintf(con, "pool block status: \r\n");
+	for(n=0; n<POOL_BLOCK_NUMBER; n++) {
+		cprintf(con, "%02x ", blocks[n]);
+	}
+	cprint(con, "\r\n", 2);
+#endif
+
 }
 
 void cmd_show_threads(t_hydra_console *con)
@@ -421,10 +431,11 @@ int cmd_debug_test_rx(t_hydra_console *con, t_tokenline_parsed *p)
 {
 	(void)p;
 	BaseSequentialStream* chp = con->bss;
+	uint8_t * inbuf = pool_alloc_bytes(0x1000); // 4096 bytes
 
 	cprintf(con, "Test debug-rx started, stop it with UBTN + Key\r\n");
 	while(1) {
-		chnRead(chp, (uint8_t *)g_sbuf, sizeof(g_sbuf) - 1);
+		chnRead(chp, inbuf, 0x0FFF);
 
 		/* Exit if User Button is pressed */
 		if (hydrabus_ubtn()) {
@@ -432,10 +443,11 @@ int cmd_debug_test_rx(t_hydra_console *con, t_tokenline_parsed *p)
 		}
 		//get_char(con);
 	}
+	pool_free(inbuf);
 	return TRUE;
 }
 
-static uint8_t hexchartonibble(char hex)
+uint8_t hexchartonibble(char hex)
 {
 	if (hex >= '0' && hex <= '9') return hex - '0';
 	if (hex >= 'a' && hex <='f') return hex - 'a' + 10;
@@ -443,7 +455,7 @@ static uint8_t hexchartonibble(char hex)
 	return 0;
 }
 
-static uint8_t hex2byte(char * hex)
+uint8_t hex2byte(char * hex)
 {
 	uint8_t val = 0;
 	val = (hexchartonibble(hex[0]) << 4);

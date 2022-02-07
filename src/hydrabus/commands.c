@@ -24,7 +24,7 @@
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 
 /* Developer warning keep this list synchronized with same number of items and same items order as commands.h => enum */
-t_token_dict tl_dict[] = {
+const t_token_dict tl_dict[] = {
 	{ /* Dummy entry */ },
 	{ T_HELP, "help" },
 	{ T_HISTORY, "history" },
@@ -140,6 +140,7 @@ t_token_dict tl_dict[] = {
 	{ T_TWOWIRE, "2-wire" },
 	{ T_CAN, "can" },
 	{ T_ID, "id" },
+	{ T_MASK, "mask" },
 	{ T_FILTER, "filter" },
 	{ T_LOW, "low" },
 	{ T_HIGH, "high" },
@@ -161,6 +162,7 @@ t_token_dict tl_dict[] = {
 	{ T_PRESCALER, "prescaler" },
 	{ T_CONVENTION, "convention" },
 	{ T_DELAY, "delay" },
+	{ T_MMC, "mmc" },
 	/* Developer warning add new command(s) here */
 
 	/* BP-compatible commands */
@@ -256,14 +258,14 @@ t_token tokens_mode_can_filter[] = {
 		.help = "Disable filter"
 	},
 	{
-		T_LOW,
+		T_ID,
 		.arg_type = T_ARG_UINT,
-		.help = "Lower ID to include in filter"
+		.help = "Filter value"
 	},
 	{
-		T_HIGH,
+		T_MASK,
 		.arg_type = T_ARG_UINT,
-		.help = "Higher ID to include in filter"
+		.help = "Filter mask"
 	},
 	{ }
 };
@@ -1444,6 +1446,11 @@ t_token tokens_mode_twowire[] = {
 		.help = "Bus frequency"
 	},
 	{
+		T_POLARITY,
+		.arg_type = T_ARG_UINT,
+		.help = "Clock polarity (0/1)"
+	},
+	{
 		T_IDCODE,
 		.help = "Read SWD IDCODE."
 	},
@@ -1568,6 +1575,11 @@ t_token tokens_mode_threewire[] = {
 		.help = "Bus frequency"
 	},
 	{
+		T_POLARITY,
+		.arg_type = T_ARG_UINT,
+		.help = "Clock polarity (0/1)"
+	},
+	{
 		T_ARG_UINT,
 		.flags = T_FLAG_SUFFIX_TOKEN_DELIM_INT,
 		.help = "Write byte (repeat with :<num>)"
@@ -1664,6 +1676,34 @@ t_token tokens_mode_flash[] = {
 };
 
 t_token tokens_flash[] = {
+	{ }
+};
+
+t_token tokens_mode_mmc[] = {
+	{
+		T_SHOW,
+		.subtokens = tokens_mode_show,
+		.help = "Show mmc parameters"
+	},
+	/* mmc-specific commands */
+	{
+		T_PINS,
+		.arg_type = T_ARG_UINT,
+		.help = "Number of data pins (1 or 4)"
+	},
+	{
+		T_ID,
+		.help = "Displays the CID and CSD registers"
+	},
+	/* BP commands */
+	{
+		T_EXIT,
+		.help = "Exit mmc mode"
+	},
+	{ }
+};
+
+t_token tokens_mmc[] = {
 	{ }
 };
 
@@ -2159,6 +2199,11 @@ t_token tl_tokens[] = {
 		T_FLASH,
 		.subtokens = tokens_flash,
 		.help = "NAND flash mode"
+	},
+	{
+		T_MMC,
+		.subtokens = tokens_mmc,
+		.help = "MMC/eMMC mode"
 	},
 	{
 		T_WIEGAND,

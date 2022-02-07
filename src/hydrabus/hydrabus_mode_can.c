@@ -17,6 +17,7 @@
  * limitations under the License.
  */
 
+#include "common.h"
 #include "bsp.h"
 #include "bsp_gpio.h"
 #include "bsp_can.h"
@@ -51,8 +52,8 @@ static void init_proto_default(t_hydra_console *con)
 	/* TS1 = 15TQ, TS2 = 5TQ, SJW = 2TQ */
 	proto->config.can.dev_timing = 0x14e0000;
 
-	proto->config.can.filter_id_low = 0;
-	proto->config.can.filter_id_high = 0;
+	proto->config.can.filter_id = 0;
+	proto->config.can.filter_mask = 0;
 
 }
 
@@ -101,7 +102,7 @@ static void can_slcan_out(t_hydra_console *con, can_rx_frame *msg)
 
 static bsp_status_t can_slcan_in(uint8_t *slcanmsg, can_tx_frame *msg)
 {
-	uint8_t result = 0;
+	uint8_t data_index, i;
 	switch(slcanmsg[0]) {
 	case 't':
 		msg->header.RTR = CAN_RTR_DATA;
@@ -124,35 +125,29 @@ static bsp_status_t can_slcan_in(uint8_t *slcanmsg, can_tx_frame *msg)
 	}
 
 	if (msg->header.IDE == CAN_ID_STD) {
-		result = sscanf((char *)slcanmsg, "%*[tr]%3X%1d%02X%02X%02X%02X%02X%02X%02X%02X",
-		       (unsigned int *) &msg->header.StdId,
-		       (unsigned int *) &msg->header.DLC,
-		       (unsigned int *) &msg->data[0],
-		       (unsigned int *) &msg->data[1],
-		       (unsigned int *) &msg->data[2],
-		       (unsigned int *) &msg->data[3],
-		       (unsigned int *) &msg->data[4],
-		       (unsigned int *) &msg->data[5],
-		       (unsigned int *) &msg->data[6],
-		       (unsigned int *) &msg->data[7]);
+		msg->header.StdId = hexchartonibble(slcanmsg[1])<<8;
+		msg->header.StdId |= hexchartonibble(slcanmsg[2])<<4;
+		msg->header.StdId |= hexchartonibble(slcanmsg[3]);
+		msg->header.DLC = hexchartonibble(slcanmsg[4])%8;
+		data_index = 5;
 	} else {
-		result = sscanf((char *)slcanmsg, "%*[TR]%8X%1d%02X%02X%02X%02X%02X%02X%02X%02X",
-		       (unsigned int *) &msg->header.ExtId,
-		       (unsigned int *) &msg->header.DLC,
-		       (unsigned int *) &msg->data[0],
-		       (unsigned int *) &msg->data[1],
-		       (unsigned int *) &msg->data[2],
-		       (unsigned int *) &msg->data[3],
-		       (unsigned int *) &msg->data[4],
-		       (unsigned int *) &msg->data[5],
-		       (unsigned int *) &msg->data[6],
-		       (unsigned int *) &msg->data[7]);
+		msg->header.ExtId = hexchartonibble(slcanmsg[1])<<28;
+		msg->header.ExtId |= hexchartonibble(slcanmsg[2])<<24;
+		msg->header.ExtId |= hexchartonibble(slcanmsg[3])<<20;
+		msg->header.ExtId |= hexchartonibble(slcanmsg[4])<<16;
+		msg->header.ExtId |= hexchartonibble(slcanmsg[5])<<12;
+		msg->header.ExtId |= hexchartonibble(slcanmsg[6])<<8;
+		msg->header.ExtId |= hexchartonibble(slcanmsg[7])<<4;
+		msg->header.ExtId |= hexchartonibble(slcanmsg[8]);
+		msg->header.DLC = hexchartonibble(slcanmsg[9])%8;
+		data_index = 10;
 	}
-	if(result >= (msg->header.DLC+2)) {
-		return BSP_OK;
-	} else {
-		return BSP_ERROR;
+	for(i=0; i<msg->header.DLC; i+=2) {
+		msg->data[i] = hex2byte((char *)&slcanmsg[data_index+i]);
 	}
+
+
+	return BSP_OK;
 }
 
 static void slcan_read_command(t_hydra_console *con, uint8_t *buff){
@@ -285,9 +280,14 @@ void slcan(t_hydra_console *con) {
 			/*status*/
 			break;
 		case 'M':
+			proto->config.can.filter_id = *(uint32_t *) &buff[1];
+			proto->config.can.filter_id = reverse_u32(proto->config.can.filter_id);
+			bsp_can_set_filter(proto->dev_num, proto);
+			break;
 		case 'm':
-			/*Filter*/
-			bsp_can_init_filter(proto->dev_num, proto);
+			proto->config.can.filter_mask = *(uint32_t *) &buff[1];
+			proto->config.can.filter_mask = reverse_u32(proto->config.can.filter_mask);
+			bsp_can_set_filter(proto->dev_num, proto);
 			break;
 		case 'V':
 			/*Version*/
@@ -332,10 +332,8 @@ static int init(t_hydra_console *con, t_tokenline_parsed *p)
 	}
 
 	/* By default, get all packets */
-	if (proto->config.can.filter_id_low != 0 || proto->config.can.filter_id_high != 0) {
-		bsp_status = bsp_can_set_filter(proto->dev_num, proto,
-						proto->config.can.filter_id_low,
-						proto->config.can.filter_id_high);
+	if (proto->config.can.filter_id != 0 || proto->config.can.filter_mask != 0) {
+		bsp_status = bsp_can_set_filter(proto->dev_num, proto);
 	} else {
 		bsp_status = bsp_can_init_filter(proto->dev_num, proto);
 	}
@@ -441,21 +439,15 @@ static int exec(t_hydra_console *con, t_tokenline_parsed *p, int token_pos)
 					cprintf(con, "Reset filter error %02X", bsp_status);
 				}
 				break;
-			case T_LOW:
+			case T_ID:
 				memcpy(&arg_int, p->buf + p->tokens[t+3], sizeof(int));
-				proto->config.can.filter_id_low = arg_int;
-				bsp_status = bsp_can_set_filter(proto->dev_num,
-								proto,
-								proto->config.can.filter_id_low,
-								proto->config.can.filter_id_high);
+				proto->config.can.filter_id = arg_int;
+				bsp_status = bsp_can_set_filter(proto->dev_num, proto);
 				break;
-			case T_HIGH:
+			case T_MASK:
 				memcpy(&arg_int, p->buf + p->tokens[t+3], sizeof(int));
-				proto->config.can.filter_id_high = arg_int;
-				bsp_status = bsp_can_set_filter(proto->dev_num,
-								proto,
-								proto->config.can.filter_id_low,
-								proto->config.can.filter_id_high);
+				proto->config.can.filter_mask = arg_int;
+				bsp_status = bsp_can_set_filter(proto->dev_num, proto);
 				break;
 			}
 			t+=3;
@@ -618,9 +610,9 @@ static int show(t_hydra_console *con, t_tokenline_parsed *p)
 		break;
 	case T_FILTER:
 		tokens_used++;
-		cprintf(con, "Low : 0x%02X\r\nHigh: 0x%02X\r\n",
-			proto->config.can.filter_id_low,
-			proto->config.can.filter_id_high);
+		cprintf(con, "ID : 0x%08X\r\nMask: 0x%08X\r\n",
+			proto->config.can.filter_id,
+			proto->config.can.filter_mask);
 		break;
 	default:
 		show_params(con);

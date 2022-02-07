@@ -132,6 +132,7 @@ enum {
 	T_TWOWIRE,
 	T_CAN,
 	T_ID,
+	T_MASK,
 	T_FILTER,
 	T_LOW,
 	T_HIGH,
@@ -153,6 +154,7 @@ enum {
 	T_PRESCALER,
 	T_CONVENTION,
 	T_DELAY,
+	T_MMC,
 	/* Developer warning add new command(s) here */
 
 	/* BP-compatible commands */

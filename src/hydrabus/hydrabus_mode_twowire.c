@@ -38,10 +38,12 @@ void twowire_init_proto_default(t_hydra_console *con)
 
 	/* Defaults */
 	proto->dev_num = 0;
+	proto->wwr = 0;
 	proto->config.rawwire.dev_gpio_mode = MODE_CONFIG_DEV_GPIO_OUT_PUSHPULL;
 	proto->config.rawwire.dev_gpio_pull = MODE_CONFIG_DEV_GPIO_NOPULL;
 	proto->config.rawwire.dev_bit_lsb_msb = DEV_FIRSTBIT_MSB;
 	proto->config.rawwire.dev_speed = TWOWIRE_MAX_FREQ;
+	proto->config.rawwire.clock_polarity = 0;
 
 	proto->config.rawwire.clk_pin = 3;
 	proto->config.rawwire.sdi_pin = 4;
@@ -130,8 +132,15 @@ inline void twowire_clk_low(t_hydra_console *con)
 
 inline void twowire_clock(t_hydra_console *con)
 {
-	twowire_clk_high(con);
-	twowire_clk_low(con);
+	mode_config_proto_t* proto = &con->mode->proto;
+
+	if (proto->config.rawwire.clock_polarity == 0) {
+		twowire_clk_high(con);
+		twowire_clk_low(con);
+	} else {
+		twowire_clk_low(con);
+		twowire_clk_high(con);
+	}
 }
 
 uint8_t twowire_send_bit(t_hydra_console *con, uint8_t bit)
@@ -160,9 +169,15 @@ uint8_t twowire_read_bit_clock(t_hydra_console *con)
 	uint8_t bit;
 	twowire_sda_mode_input(con);
 
-	twowire_clk_high(con);
-	bit = bsp_gpio_pin_read(BSP_GPIO_PORTB, proto->config.rawwire.sdi_pin);
-	twowire_clk_low(con);
+	if (proto->config.rawwire.clock_polarity == 0) {
+		twowire_clk_high(con);
+		bit = bsp_gpio_pin_read(BSP_GPIO_PORTB, proto->config.rawwire.sdi_pin);
+		twowire_clk_low(con);
+	} else {
+		twowire_clk_low(con);
+		bit = bsp_gpio_pin_read(BSP_GPIO_PORTB, proto->config.rawwire.sdi_pin);
+		twowire_clk_high(con);
+	}
 	return bit;
 }
 
@@ -219,7 +234,7 @@ uint8_t twowire_write_u8(t_hydra_console *con, uint8_t tx_data)
 	for (i=0; i<8; i++) {
 		twowire_send_bit(con, (tx_data>>i) & 1);
 	}
-	return 1;
+	return BSP_OK;
 }
 
 uint8_t twowire_read_u8(t_hydra_console *con)
@@ -400,6 +415,21 @@ static int exec(t_hydra_console *con, t_tokenline_parsed *p, int token_pos)
 				return t;
 			}
 			twowire_brute_swd(con, arg_int);
+			break;
+		case T_POLARITY:
+			t += 2;
+			memcpy(&arg_int, p->buf + p->tokens[t], sizeof(uint32_t));
+			if (arg_int == 0 || arg_int == 1) {
+				proto->config.rawwire.clock_polarity = (int)arg_int;
+				if (arg_int == 0) {
+					twowire_clk_low(con);
+				} else {
+					twowire_clk_high(con);
+				}
+			} else {
+				cprintf(con, "Polarity must be 0 or 1.\r\n");
+				return t;
+			}
 			break;
 		case T_IDCODE:
 			arg_int = twowire_swd_idcode(con);

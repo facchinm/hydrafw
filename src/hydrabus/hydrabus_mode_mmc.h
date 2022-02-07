@@ -16,17 +16,10 @@
  * limitations under the License.
  */
 
-#ifndef _HYDRABUS_MODE_SPI_H_
-#define _HYDRABUS_MODE_SPI_H_
+#ifndef _HYDRABUS_MODE_MMC_H_
+#define _HYDRABUS_MODE_MMC_H_
 
 #include "hydrabus_mode.h"
 
-enum {
-	SPI_MSB_FIRST,
-	SPI_LSB_FIRST,
-};
+#endif /* _HYDRABUS_MODE_MMC_H_ */
 
-#define SPI_SPEED_NB (8)
-extern const uint32_t spi_speeds[2][SPI_SPEED_NB];
-
-#endif /* _HYDRABUS_MODE_SPI_H_ */

@@ -28,6 +28,7 @@
 #include "commands.h"
 #include "mode_config.h"
 #include "ff.h"
+#include "alloc.h"
 
 #define ARRAY_SIZE(x) (sizeof((x))/sizeof((x)[0]))
 
@@ -58,14 +59,11 @@
 void DelayUs(uint32_t delay_us);
 void DelayMs(uint32_t delay_ms);
 
-extern uint8_t buf[512] __attribute__ ((section(".cmm")));
 /* Generic large buffer.*/
-extern uint8_t fbuff[2048] __attribute__ ((section(".cmm")));
+extern uint8_t fbuff[2048] __attribute__ ((section(".ram4")));
 
 #define NB_SBUFFER  (65536)
 #define G_SBUF_SDC_BURST_SIZE (NB_SBUFFER/MMCSD_BLOCK_SIZE) /* how many sectors reads at once */
-extern uint32_t g_sbuf_idx;
-extern uint8_t g_sbuf[NB_SBUFFER+128] __attribute__ ((aligned (4)));
 
 /* USB1: Virtual serial port over USB.*/
 extern SerialUSBDriver SDU1;
@@ -134,6 +132,8 @@ void cprint(t_hydra_console *con, const char *data, const uint32_t size);
 void cprintf(t_hydra_console *con, const char *fmt, ...);
 void print_hex(t_hydra_console *con, uint8_t* data, uint8_t size);
 uint8_t parse_escaped_string(char * input, uint8_t * output);
+uint8_t hexchartonibble(char hex);
+uint8_t hex2byte(char * hex);
 
 uint8_t reverse_u8(uint8_t value);
 uint16_t reverse_u16(uint16_t value);
