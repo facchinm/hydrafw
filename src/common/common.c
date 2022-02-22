@@ -525,5 +525,6 @@ uint32_t reverse_u32(uint32_t value)
 
 uint8_t hydrabus_ubtn(void)
 {
-	return bsp_gpio_pin_read(BSP_GPIO_PORTA, 0);
+	return 0;
+	//return bsp_gpio_pin_read(BSP_GPIO_PORTA, 0);
 }

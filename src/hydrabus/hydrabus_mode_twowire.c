@@ -45,8 +45,8 @@ void twowire_init_proto_default(t_hydra_console *con)
 	proto->config.rawwire.dev_speed = TWOWIRE_MAX_FREQ;
 	proto->config.rawwire.clock_polarity = 0;
 
-	proto->config.rawwire.clk_pin = 3;
-	proto->config.rawwire.sdi_pin = 4;
+	proto->config.rawwire.clk_pin = 8;
+	proto->config.rawwire.sdi_pin = 0;
 }
 
 static void show_params(t_hydra_console *con)
@@ -67,9 +67,9 @@ bool twowire_pin_init(t_hydra_console *con)
 {
 	mode_config_proto_t* proto = &con->mode->proto;
 
-	bsp_gpio_init(BSP_GPIO_PORTB, proto->config.rawwire.clk_pin,
+	bsp_gpio_init(BSP_GPIO_PORTC, proto->config.rawwire.clk_pin,
 		      proto->config.rawwire.dev_gpio_mode, proto->config.rawwire.dev_gpio_pull);
-	bsp_gpio_init(BSP_GPIO_PORTB, proto->config.rawwire.sdi_pin,
+	bsp_gpio_init(BSP_GPIO_PORTC, proto->config.rawwire.sdi_pin,
 		      proto->config.rawwire.dev_gpio_mode, proto->config.rawwire.dev_gpio_pull);
 	return true;
 }
@@ -91,25 +91,25 @@ void twowire_tim_set_prescaler(t_hydra_console *con)
 static void twowire_sda_mode_input(t_hydra_console *con)
 {
 	mode_config_proto_t* proto = &con->mode->proto;
-	bsp_gpio_mode_in(BSP_GPIO_PORTB, proto->config.rawwire.sdi_pin);
+	bsp_gpio_mode_in(BSP_GPIO_PORTC, proto->config.rawwire.sdi_pin);
 }
 
 static void twowire_sda_mode_output(t_hydra_console *con)
 {
 	mode_config_proto_t* proto = &con->mode->proto;
-	bsp_gpio_mode_out(BSP_GPIO_PORTB, proto->config.rawwire.sdi_pin);
+	bsp_gpio_mode_out(BSP_GPIO_PORTC, proto->config.rawwire.sdi_pin);
 }
 
 inline void twowire_sda_high(t_hydra_console *con)
 {
 	mode_config_proto_t* proto = &con->mode->proto;
-	bsp_gpio_set(BSP_GPIO_PORTB, proto->config.rawwire.sdi_pin);
+	bsp_gpio_set(BSP_GPIO_PORTC, proto->config.rawwire.sdi_pin);
 }
 
 inline void twowire_sda_low(t_hydra_console *con)
 {
 	mode_config_proto_t* proto = &con->mode->proto;
-	bsp_gpio_clr(BSP_GPIO_PORTB, proto->config.rawwire.sdi_pin);
+	bsp_gpio_clr(BSP_GPIO_PORTC, proto->config.rawwire.sdi_pin);
 }
 
 inline void twowire_clk_high(t_hydra_console *con)
@@ -117,7 +117,7 @@ inline void twowire_clk_high(t_hydra_console *con)
 	mode_config_proto_t* proto = &con->mode->proto;
 
 	bsp_tim_wait_irq();
-	bsp_gpio_set(BSP_GPIO_PORTB, proto->config.rawwire.clk_pin);
+	bsp_gpio_set(BSP_GPIO_PORTC, proto->config.rawwire.clk_pin);
 	bsp_tim_clr_irq();
 }
 
@@ -126,7 +126,7 @@ inline void twowire_clk_low(t_hydra_console *con)
 	mode_config_proto_t* proto = &con->mode->proto;
 
 	bsp_tim_wait_irq();
-	bsp_gpio_clr(BSP_GPIO_PORTB, proto->config.rawwire.clk_pin);
+	bsp_gpio_clr(BSP_GPIO_PORTC, proto->config.rawwire.clk_pin);
 	bsp_tim_clr_irq();
 }
 
@@ -160,7 +160,7 @@ uint8_t twowire_read_bit(t_hydra_console *con)
 {
 	mode_config_proto_t* proto = &con->mode->proto;
 	twowire_sda_mode_input(con);
-	return bsp_gpio_pin_read(BSP_GPIO_PORTB, proto->config.rawwire.sdi_pin);
+	return bsp_gpio_pin_read(BSP_GPIO_PORTC, proto->config.rawwire.sdi_pin);
 }
 
 uint8_t twowire_read_bit_clock(t_hydra_console *con)
@@ -171,11 +171,11 @@ uint8_t twowire_read_bit_clock(t_hydra_console *con)
 
 	if (proto->config.rawwire.clock_polarity == 0) {
 		twowire_clk_high(con);
-		bit = bsp_gpio_pin_read(BSP_GPIO_PORTB, proto->config.rawwire.sdi_pin);
+		bit = bsp_gpio_pin_read(BSP_GPIO_PORTC, proto->config.rawwire.sdi_pin);
 		twowire_clk_low(con);
 	} else {
 		twowire_clk_low(con);
-		bit = bsp_gpio_pin_read(BSP_GPIO_PORTB, proto->config.rawwire.sdi_pin);
+		bit = bsp_gpio_pin_read(BSP_GPIO_PORTC, proto->config.rawwire.sdi_pin);
 		twowire_clk_high(con);
 	}
 	return bit;
